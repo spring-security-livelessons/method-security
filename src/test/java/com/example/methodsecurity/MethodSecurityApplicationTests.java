@@ -27,107 +27,117 @@ import java.util.stream.Stream;
 @SpringBootTest
 public class MethodSecurityApplicationTests {
 
+	final static String ROB_EMAIL = "rob@email.com";
 
-		final static String ROB_EMAIL = "rob@email.com";
-		final static String JOSH_EMAIL = "josh@email.com";
+	final static String JOSH_EMAIL = "josh@email.com";
 
-		private User rob, josh;
-		private Authority writer, admin, user;
-		private Message forJosh, forRob;
+	private User rob, josh;
 
-		@Autowired
-		private AuthorityRepository authorityRepository;
+	private Authority writer, admin, user;
 
-		@Autowired
-		private MessageRepository messageRepository;
+	private Message forJosh, forRob;
 
-		@Autowired
-		private UserRepository userRepository;
+	@Autowired
+	private AuthorityRepository authorityRepository;
 
-		@Autowired
-		private UserRepositoryUserDetailsService userDetailsService;
+	@Autowired
+	private MessageRepository messageRepository;
 
-		@Before
-		public void start() {
-				Stream.of(this.messageRepository, this.userRepository, this.authorityRepository)
-					.forEach(jr -> {
-							jr.deleteAll();
-							jr.flush();
-					});
+	@Autowired
+	private UserRepository userRepository;
 
-				this.admin = this.authorityRepository.save(new Authority("ADMIN"));
-				this.user = this.authorityRepository.save(new Authority("USER"));
-				this.writer = this.authorityRepository.save(new Authority("WRITER"));
-				Assert.assertEquals(this.authorityRepository.findAll().size(), 3);
-				this.rob = this.userRepository.save(new User(ROB_EMAIL, "password", new HashSet<>(Arrays.asList(this.admin, this.user))));
-				this.josh = this.userRepository.save(new User(JOSH_EMAIL, "password", new HashSet<>(Arrays.asList(this.user))));
-				Assert.assertEquals(this.userRepository.findAll().size(), 2);
-				this.forJosh = this.messageRepository.save(new Message("this is a message", this.josh));
-				this.forRob = this.messageRepository.save(new Message("yet another message", this.rob));
-		}
+	@Autowired
+	private UserRepositoryUserDetailsService userDetailsService;
 
-		@Test
-		public void usersAndAuthorities() {
-				assertUserAuthorities(JOSH_EMAIL, 1);
-				this.josh.getAuthorities().add(this.writer);
-				this.authorityRepository.save(this.writer);
-				assertUserAuthorities(JOSH_EMAIL, 2);
-				Assert.assertEquals(this.messageRepository.count(), 2);
-				Assert.assertNotNull(this.messageRepository.findById(forJosh.getId()));
-				Assert.assertNotNull(this.messageRepository.findById(forRob.getId()));
-		}
+	@Before
+	public void start() {
+		Stream.of(this.messageRepository, this.userRepository, this.authorityRepository)
+				.forEach(jr -> {
+					jr.deleteAll();
+					jr.flush();
+				});
 
-		@Test(expected = AccessDeniedException.class)
-		public void findByIdRolesAllowed() {
-				this.testAuthenticationWithMethodSecurity(id -> this.messageRepository.findByIdRolesAllowed(id), forRob.getId());
-		}
+		this.admin = this.authorityRepository.save(new Authority("ADMIN"));
+		this.user = this.authorityRepository.save(new Authority("USER"));
+		this.writer = this.authorityRepository.save(new Authority("WRITER"));
+		Assert.assertEquals(this.authorityRepository.findAll().size(), 3);
+		this.rob = this.userRepository.save(new User(ROB_EMAIL, "password",
+				new HashSet<>(Arrays.asList(this.admin, this.user))));
+		this.josh = this.userRepository.save(new User(JOSH_EMAIL, "password",
+				new HashSet<>(Arrays.asList(this.user))));
+		Assert.assertEquals(this.userRepository.findAll().size(), 2);
+		this.forJosh = this.messageRepository
+				.save(new Message("this is a message", this.josh));
+		this.forRob = this.messageRepository
+				.save(new Message("yet another message", this.rob));
+	}
 
-		@Test(expected = AccessDeniedException.class)
-		public void findByIdBeanCheck() {
-				this.testAuthenticationWithMethodSecurity(id -> this.messageRepository.findByIdBeanCheck(id), forRob.getId());
-		}
+	@Test
+	public void usersAndAuthorities() {
+		assertUserAuthorities(JOSH_EMAIL, 1);
+		this.josh.getAuthorities().add(this.writer);
+		this.authorityRepository.save(this.writer);
+		assertUserAuthorities(JOSH_EMAIL, 2);
+		Assert.assertEquals(this.messageRepository.count(), 2);
+		Assert.assertNotNull(this.messageRepository.findById(forJosh.getId()));
+		Assert.assertNotNull(this.messageRepository.findById(forRob.getId()));
+	}
 
-		@Test(expected = AccessDeniedException.class)
-		public void findByIdSecured() {
-				this.testAuthenticationWithMethodSecurity(id -> this.messageRepository.findByIdSecured(id), forRob.getId());
-		}
+	@Test(expected = AccessDeniedException.class)
+	public void findByIdRolesAllowed() {
+		this.testAuthenticationWithMethodSecurity(
+				id -> this.messageRepository.findByIdRolesAllowed(id), forRob.getId());
+	}
 
-		@Test(expected = AccessDeniedException.class)
-		public void findByIdPreAuthorize() {
-				this.testAuthenticationWithMethodSecurity(id -> this.messageRepository.findByIdPreAuthorize(id), forRob.getId());
-		}
+	@Test(expected = AccessDeniedException.class)
+	public void findByIdSecured() {
+		this.testAuthenticationWithMethodSecurity(
+				id -> this.messageRepository.findByIdSecured(id), forRob.getId());
+	}
 
-		@Test
-		public void findMessagesFor() throws Exception {
-				installAuthentication(ROB_EMAIL);
-				this.messageRepository.save(new Message("this is a message for rob", this.rob));
-				this.messageRepository.save(new Message("this is yet another message for rob", this.rob));
-				this.messageRepository.save(new Message("this is also yet another message for rob", this.rob));
-				Assert.assertEquals(this.messageRepository.findMessagesFor(PageRequest.of(0, 10)).getTotalElements(), 4);
+	@Test(expected = AccessDeniedException.class)
+	public void findByIdPreAuthorize() {
+		this.testAuthenticationWithMethodSecurity(
+				id -> this.messageRepository.findByIdPreAuthorize(id), forRob.getId());
+	}
 
-				installAuthentication(JOSH_EMAIL);
-				Assert.assertEquals(this.messageRepository.findMessagesFor(PageRequest.of(0, 10)).getTotalElements(), 1);
-		}
+	@Test
+	public void findMessagesFor() {
+		installAuthentication(ROB_EMAIL);
+		this.messageRepository.save(new Message("this is a message for rob", this.rob));
+		this.messageRepository
+				.save(new Message("this is yet another message for rob", this.rob));
+		this.messageRepository
+				.save(new Message("this is also yet another message for rob", this.rob));
+		Assert.assertEquals(this.messageRepository.findMessagesFor(PageRequest.of(0, 10))
+				.getTotalElements(), 4);
 
-		private void testAuthenticationWithMethodSecurity(Function<Long, Message> callback, Long id) {
-				this.installAuthentication(ROB_EMAIL);
-				callback.apply(id);
-				this.installAuthentication(JOSH_EMAIL);
-				callback.apply(id);
-				Assert.fail("you shouldn't be able to reach this point as you don't have the right permissions");
-		}
+		installAuthentication(JOSH_EMAIL);
+		Assert.assertEquals(this.messageRepository.findMessagesFor(PageRequest.of(0, 10))
+				.getTotalElements(), 1);
+	}
 
-		private void installAuthentication(String username) {
-				UserDetails principal = this.userDetailsService.loadUserByUsername(username);
-				Authentication authentication = new UsernamePasswordAuthenticationToken(
-					principal, principal.getPassword(), principal.getAuthorities());
-				SecurityContextHolder.getContext().setAuthentication(authentication);
-		}
+	private void testAuthenticationWithMethodSecurity(Function<Long, Message> callback,
+			Long id) {
+		this.installAuthentication(ROB_EMAIL);
+		callback.apply(id);
+		this.installAuthentication(JOSH_EMAIL);
+		callback.apply(id);
+		Assert.fail(
+				"you shouldn't be able to reach this point as you don't have the right permissions");
+	}
 
-		private void assertUserAuthorities(String username, int size) {
-				User usr = this.userRepository.findByEmail(username);
-				Assert.assertNotNull(usr);
-				Assert.assertEquals(usr.getAuthorities().size(), size);
-		}
+	private void installAuthentication(String username) {
+		UserDetails principal = this.userDetailsService.loadUserByUsername(username);
+		Authentication authentication = new UsernamePasswordAuthenticationToken(principal,
+				principal.getPassword(), principal.getAuthorities());
+		SecurityContextHolder.getContext().setAuthentication(authentication);
+	}
+
+	private void assertUserAuthorities(String username, int size) {
+		User usr = this.userRepository.findByEmail(username);
+		Assert.assertNotNull(usr);
+		Assert.assertEquals(usr.getAuthorities().size(), size);
+	}
 
 }
